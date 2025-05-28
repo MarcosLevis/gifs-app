@@ -7,6 +7,6 @@ import { Component, input } from '@angular/core';
 })
 export class ListItemComponent { 
   
-  itemUrl = input<string>();
+  itemUrl = input.required<string>();
 
 }

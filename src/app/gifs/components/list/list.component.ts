@@ -8,6 +8,6 @@ import { ListItemComponent } from './list-item/list-item.component';
 })
 export class ListComponent {
 
-  imageUrls = input<string[]>(); 
+  imageUrlsList = input.required<string[]>(); 
   
 }
