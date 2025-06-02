@@ -6,6 +6,11 @@ import { GifMapper } from '../mapper/gif.mapper';
 import type { GiphyResponse } from '../interfaces/giphy.interfaces';
 import type { Gif } from '../interfaces/gif.interface';
 
+const loadFromLocalStorage = () =>{
+    const gifsFromLocalStorage = localStorage.getItem('gifs') ?? '{}';
+    const gifs = JSON.parse(gifsFromLocalStorage)
+    return gifs
+}
 @Injectable({providedIn: 'root'})
 
 export class GifService {
@@ -14,10 +19,19 @@ export class GifService {
 
     trendingGifs = signal<Gif[]>([])
     searchGifs = signal<Gif[]>([])
-    trendingGifsLoading = signal(true)
+    trendingGifsLoading = signal(false)
     searchGifsLoading = signal(true)
+    private currentPage = signal(0)
 
-    searchHistory = signal<Record<string,Gif[]>>({})
+    trendingGifGroup = computed<Gif[][]>(() => {
+        const groups = []
+        for ( let i = 0; i < this.trendingGifs().length; i += 3){
+            groups.push(this.trendingGifs().slice(i,i + 3))
+        }
+        return groups
+    })
+
+    searchHistory = signal<Record<string,Gif[]>>(loadFromLocalStorage())
     searchHistoryKeys = computed(() => Object.keys(this.searchHistory()))
 
     constructor(){
@@ -25,14 +39,21 @@ export class GifService {
     }
 
     getTrendingGifs(){
+
+        if(this.trendingGifsLoading()) return
+
+        this.trendingGifsLoading.set(true)
+
         this.http.get<GiphyResponse>(`${environment.giphyUrl}/gifs/trending`, {
             params: {
                 api_key: environment.apiKey,
                 limit: 20,
+                offset: this.currentPage() * 20
             }
         }).subscribe((resp) => {
             const gifs = GifMapper.mapGiphyItemsToGifArray(resp.data)
-            this.trendingGifs.set(gifs)
+            this.trendingGifs.update(currentGifs => [...currentGifs, ...gifs])
+            this.currentPage.update(current => current + 1)
             this.trendingGifsLoading.set(false)
         })
     }
@@ -55,15 +76,10 @@ export class GifService {
         );
         
     }
+
     loadToLocalStorage = effect(() => {  
-        console.log('TU VIEJA')
-        if (this.searchHistory()){
-            const i = Object.keys(this.searchHistory()).length - 1
-            const key = Object.keys(this.searchHistory())[i] //.toString()
-            const value = JSON.stringify(Object.values(this.searchHistory())[i])
-            // console.log(value)
-            localStorage.setItem(key,value)
-        }
+        const historyString = JSON.stringify(this.searchHistory());
+        localStorage.setItem('gifs',historyString)
     })
 
     getHistoryGifs(query: string): Gif[]{
